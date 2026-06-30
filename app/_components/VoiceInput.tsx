@@ -144,7 +144,7 @@ export function VoiceInput({
       )}
 
       {speech.statusHint && (
-        <p className="w-full rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
+        <p className="w-full whitespace-pre-line rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm leading-relaxed text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
           {speech.statusHint}
         </p>
       )}

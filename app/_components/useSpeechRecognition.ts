@@ -36,6 +36,64 @@ function isIOS(): boolean {
   return /iPad|iPhone|iPod/.test(navigator.userAgent);
 }
 
+type DeviceKind =
+  | "ios-chrome"
+  | "ios-safari"
+  | "android-chrome"
+  | "desktop-chrome"
+  | "other";
+
+function detectDevice(): DeviceKind {
+  if (typeof navigator === "undefined") return "other";
+  const ua = navigator.userAgent;
+  if (/iPad|iPhone|iPod/.test(ua)) {
+    // Chrome (CriOS), Firefox (FxiOS), Edge (EdgiOS) on iOS are all WebKit shells.
+    if (/CriOS|FxiOS|EdgiOS/.test(ua)) return "ios-chrome";
+    return "ios-safari";
+  }
+  if (/Android/.test(ua)) return "android-chrome";
+  if (/Chrome\//.test(ua)) return "desktop-chrome";
+  return "other";
+}
+
+/** Device-specific steps for re-enabling microphone access after it was blocked. */
+function micBlockedMessage(): string {
+  switch (detectDevice()) {
+    case "ios-chrome":
+      return [
+        "Microphone is blocked for Chrome.",
+        "1. Open the iPhone Settings app",
+        "2. Scroll down and tap Chrome",
+        "3. Turn on Microphone",
+        "4. Return here and reload the page",
+      ].join("\n");
+    case "ios-safari":
+      return [
+        "Microphone is blocked.",
+        "1. Tap the “aA” button on the left of the address bar",
+        "2. Tap Website Settings → set Microphone to Allow",
+        "(Or: iPhone Settings → Safari → Microphone)",
+        "3. Reload the page",
+      ].join("\n");
+    case "android-chrome":
+      return [
+        "Microphone is blocked.",
+        "1. Tap the lock/tune icon left of the address bar",
+        "2. Tap Permissions → Microphone → Allow",
+        "3. Reload the page",
+      ].join("\n");
+    case "desktop-chrome":
+      return [
+        "Microphone is blocked.",
+        "1. Click the tune/lock icon at the left of the address bar",
+        "2. Set Microphone to Allow",
+        "3. Reload the page",
+      ].join("\n");
+    default:
+      return "Microphone is blocked. Enable mic access for this site in your browser settings, then reload.";
+  }
+}
+
 export type UseSpeech = {
   supported: boolean;
   listening: boolean;
@@ -98,7 +156,7 @@ export function useSpeechRecognition(
     recognition.onerror = (event) => {
       if (event.error === "not-allowed" || event.error === "service-not-allowed") {
         wantListeningRef.current = false;
-        setStatusHint("Microphone blocked. Allow mic access in Settings.");
+        setStatusHint(micBlockedMessage());
       }
       if (!wantListeningRef.current) setListening(false);
     };
