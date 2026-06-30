@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   computeTotals,
   formatCAD,
@@ -53,7 +54,7 @@ export function InvoiceDocument({ draft, onChange, onReset }: Props) {
   const addPart = (jobIndex: number) => {
     const jobs = draft.jobs.map((job, i) =>
       i === jobIndex
-        ? { ...job, parts: [...job.parts, { name: "New part", qty: 1, unitPrice: 0 }] }
+        ? { ...job, parts: [...job.parts, { name: "New part", qty: 1, unitPrice: null }] }
         : job,
     );
     onChange({ ...draft, jobs });
@@ -208,15 +209,10 @@ export function InvoiceDocument({ draft, onChange, onReset }: Props) {
                     />
                   </div>
                   <div className="flex items-center justify-end gap-1 text-sm text-zinc-600">
-                    <input
+                    <DecimalInput
                       className="inv-input w-12 text-right"
                       value={job.laborHours}
-                      inputMode="decimal"
-                      onChange={(e) =>
-                        updateJob(jobIndex, {
-                          laborHours: Number(e.target.value) || 0,
-                        })
-                      }
+                      onChange={(v) => updateJob(jobIndex, { laborHours: v ?? 0 })}
                     />
                     <span className="text-xs">hr</span>
                   </div>
@@ -254,28 +250,21 @@ export function InvoiceDocument({ draft, onChange, onReset }: Props) {
                     </div>
                     <div className="flex items-center justify-end gap-1 text-sm text-zinc-600">
                       <span className="text-xs">×</span>
-                      <input
+                      <DecimalInput
                         className="inv-input w-10 text-right"
                         value={part.qty}
-                        inputMode="numeric"
-                        onChange={(e) =>
-                          updatePart(jobIndex, partIndex, {
-                            qty: Number(e.target.value) || 0,
-                          })
+                        onChange={(v) =>
+                          updatePart(jobIndex, partIndex, { qty: v ?? 0 })
                         }
                       />
                       <span className="text-xs">@</span>
-                      <input
+                      <DecimalInput
                         className="inv-input w-16 text-right"
-                        value={part.unitPrice ?? ""}
+                        value={part.unitPrice}
                         placeholder="—"
-                        inputMode="decimal"
-                        onChange={(e) =>
-                          updatePart(jobIndex, partIndex, {
-                            unitPrice: e.target.value
-                              ? Number(e.target.value)
-                              : null,
-                          })
+                        emptyValue={null}
+                        onChange={(v) =>
+                          updatePart(jobIndex, partIndex, { unitPrice: v })
                         }
                       />
                     </div>
@@ -339,6 +328,62 @@ export function InvoiceDocument({ draft, onChange, onReset }: Props) {
         </footer>
       </div>
     </div>
+  );
+}
+
+function DecimalInput({
+  value,
+  onChange,
+  className,
+  placeholder,
+  emptyValue = 0,
+}: {
+  value: number | null;
+  onChange: (value: number | null) => void;
+  className?: string;
+  placeholder?: string;
+  /** Value stored when the field is cleared. Use `null` for optional prices. */
+  emptyValue?: number | null;
+}) {
+  const [draft, setDraft] = useState<string | null>(null);
+
+  const formatValue = (v: number | null) => {
+    if (v === null) return "";
+    if (v === 0 && emptyValue === null) return "";
+    if (v === 0 && emptyValue === 0) return "";
+    return String(v);
+  };
+
+  const display = draft ?? formatValue(value);
+
+  const commit = (raw: string) => {
+    if (raw === "" || raw === ".") {
+      onChange(emptyValue);
+      return;
+    }
+    const parsed = Number(raw);
+    onChange(Number.isNaN(parsed) ? emptyValue : parsed);
+  };
+
+  return (
+    <input
+      className={className}
+      value={display}
+      placeholder={placeholder}
+      inputMode="decimal"
+      onChange={(e) => {
+        const next = e.target.value;
+        if (next !== "" && !/^\d*\.?\d*$/.test(next)) return;
+        setDraft(next);
+        if (next !== "" && next !== "." && !next.endsWith(".")) {
+          commit(next);
+        }
+      }}
+      onBlur={() => {
+        if (draft !== null) commit(draft);
+        setDraft(null);
+      }}
+    />
   );
 }
 

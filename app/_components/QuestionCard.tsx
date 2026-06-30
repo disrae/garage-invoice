@@ -1,5 +1,6 @@
 "use client";
 
+import { Bot } from "lucide-react";
 import { VoiceInput } from "./VoiceInput";
 
 type Props = {
@@ -13,7 +14,12 @@ export function QuestionCard({ question, options, onAnswer, disabled }: Props) {
   return (
     <div className="flex flex-col gap-5 rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
       <div className="flex items-start gap-3">
-        <span className="text-xl">🤖</span>
+        <div
+          aria-hidden
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
+        >
+          <Bot className="h-5 w-5" />
+        </div>
         <p className="text-lg font-medium text-zinc-900 dark:text-zinc-100">
           {question}
         </p>

@@ -120,15 +120,20 @@ export default function Home() {
           {SHOP.name}
         </h1>
         <p className="mt-2 text-zinc-600 dark:text-zinc-400">
-          Tell me the car and what you did — part prices optional.
+          Invoice Generator
         </p>
       </header>
 
       {phase === "intake" && (
         <div className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+          <p className="mb-4 text-sm text-zinc-500 dark:text-zinc-400">
+            Include customer name, vehicle, what job/parts were done, and part
+            costs (optional).
+          </p>
+
           <VoiceInput
             onSubmit={handleIntake}
-            placeholder="e.g. 2006 Toyota Corolla, changed the front brake pads and rotors, Bosch pads"
+            placeholder="e.g. John Smith, 2006 Toyota Corolla, replaced front brake pads + rotors, parts were about $240"
             submitLabel="Generate invoice"
           />
         </div>

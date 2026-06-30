@@ -1,8 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
-// Minimal typings for the Web Speech API (not in lib.dom reliably).
 type SpeechRecognitionResultLike = {
   0: { transcript: string };
   isFinal: boolean;
@@ -32,40 +31,57 @@ function getRecognitionCtor(): SpeechRecognitionCtor | null {
   return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
 }
 
-const noopSubscribe = () => () => {};
+function isIOS(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return /iPad|iPhone|iPod/.test(navigator.userAgent);
+}
 
 export type UseSpeech = {
   supported: boolean;
   listening: boolean;
+  statusHint: string | null;
   start: () => void;
   stop: () => void;
 };
 
-/** @param onTranscript called with the cumulative transcript as the user speaks. */
+/** Live transcript via the browser's built-in Web Speech API (free, no server). */
 export function useSpeechRecognition(
   onTranscript: (text: string) => void,
 ): UseSpeech {
-  // Capability detection without hydration mismatch or setState-in-effect.
-  const supported = useSyncExternalStore(
-    noopSubscribe,
-    () => getRecognitionCtor() !== null,
-    () => false,
-  );
-
+  const [supported, setSupported] = useState(false);
   const [listening, setListening] = useState(false);
+  const [statusHint, setStatusHint] = useState<string | null>(null);
+
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const finalRef = useRef("");
+  const wantListeningRef = useRef(false);
   const callbackRef = useRef(onTranscript);
+
   useEffect(() => {
     callbackRef.current = onTranscript;
   }, [onTranscript]);
 
   useEffect(() => {
+    const secure =
+      typeof window !== "undefined" &&
+      (window.isSecureContext || window.location.hostname === "localhost");
+    const hasSpeech = getRecognitionCtor() !== null;
+    setSupported(hasSpeech);
+
+    if (!secure) {
+      setStatusHint("Voice needs HTTPS. Use an https:// link (e.g. ngrok).");
+    } else if (!hasSpeech) {
+      setStatusHint("Voice not available here — type your job below.");
+    }
+  }, []);
+
+  useEffect(() => {
     const Ctor = getRecognitionCtor();
     if (!Ctor) return;
+
     const recognition = new Ctor();
     recognition.lang = "en-CA";
-    recognition.continuous = true;
+    recognition.continuous = !isIOS();
     recognition.interimResults = true;
 
     recognition.onresult = (event) => {
@@ -78,29 +94,53 @@ export function useSpeechRecognition(
       }
       callbackRef.current((finalRef.current + interim).trimStart());
     };
-    recognition.onerror = () => setListening(false);
-    recognition.onend = () => setListening(false);
-    recognitionRef.current = recognition;
 
-    return () => recognition.stop();
+    recognition.onerror = (event) => {
+      if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+        wantListeningRef.current = false;
+        setStatusHint("Microphone blocked. Allow mic access in Settings.");
+      }
+      if (!wantListeningRef.current) setListening(false);
+    };
+
+    recognition.onend = () => {
+      if (wantListeningRef.current) {
+        try {
+          recognition.start();
+          return;
+        } catch {
+          // fall through
+        }
+      }
+      setListening(false);
+    };
+
+    recognitionRef.current = recognition;
+    return () => {
+      wantListeningRef.current = false;
+      recognition.stop();
+    };
   }, []);
 
   const start = useCallback(() => {
     const recognition = recognitionRef.current;
     if (!recognition) return;
     finalRef.current = "";
+    wantListeningRef.current = true;
     try {
       recognition.start();
       setListening(true);
+      setStatusHint(null);
     } catch {
-      // start() throws if already running; ignore.
+      setStatusHint("Could not start dictation. Check microphone permission.");
     }
   }, []);
 
   const stop = useCallback(() => {
+    wantListeningRef.current = false;
     recognitionRef.current?.stop();
     setListening(false);
   }, []);
 
-  return { supported, listening, start, stop };
+  return { supported, listening, statusHint, start, stop };
 }
